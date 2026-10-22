@@ -1,0 +1,36 @@
+name: Build Native Windows Installer
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: native-release
+  cancel-in-progress: true
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Compile x64 application
+        shell: cmd
+        run: cl /nologo /std:c++17 /O2 /EHsc /DUNICODE /D_UNICODE /Fe:sg0hann-Crosshair-Studio.exe main.cpp /link /SUBSYSTEM:WINDOWS
+      - name: Install NSIS
+        shell: pwsh
+        run: choco install nsis -y --no-progress
+      - name: Create installer
+        shell: pwsh
+        run: '& "C:\Program Files (x86)\NSIS\makensis.exe" installer.nsi'
+      - name: Publish release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view v2.0.0 *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload v2.0.0 sg0hann-Crosshair-Studio-2.0.0-Setup.exe --clobber
+          } else {
+            gh release create v2.0.0 sg0hann-Crosshair-Studio-2.0.0-Setup.exe --title "sg0hann Crosshair Studio v2.0.0 (Native C++)" --notes "Native C++ Windows crosshair studio. Customizable crosshairs, per-weapon presets, tray, hotkeys. No game file modifications."
+          }
